@@ -194,6 +194,8 @@ local function handleInVehicle()
     if not LocalPlayer.state.isLoggedIn then return end
 
     if heliCam then
+        exports['0r-hud-v3']:ToggleVisible(false)
+        
         SetTimecycleModifier('heliGunCam')
         SetTimecycleModifierStrength(0.3)
         local scaleform = lib.requestScaleformMovie('HELI_CAM')
@@ -252,6 +254,8 @@ local function handleInVehicle()
         DestroyCam(cam, false)
         SetNightvision(false)
         SetSeethrough(false)
+         
+        exports['0r-hud-v3']:ToggleVisible(true)
     end
 end
 
