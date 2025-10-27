@@ -37,17 +37,42 @@ end
 
 local function changeVision()
     PlaySoundFrontend(-1, 'SELECT', 'HUD_FRONTEND_DEFAULT_SOUNDSET', false)
+
+    visionState = (visionState + 1) % 3  -- increment first
+
     if visionState == VISION_STATE.normal then
-        SetNightvision(true)
+        SetNightvision(false)
+        SetSeethrough(false)
+        lib.notify({
+            title = "Helikopter Kamera",
+            description = "Normal-modus",
+            type = "success",
+            icon = 'helicopter',
+            position = 'center-left'
+        })
     elseif visionState == VISION_STATE.nightmode then
+        SetNightvision(true)
+        SetSeethrough(false)
+        lib.notify({
+            title = "Helikopter Kamera",
+            description = "Nattsyn-modus",
+            type = "success",
+            icon = 'helicopter',
+            position = 'center-left'
+        })
+    elseif visionState == VISION_STATE.thermal then
         SetNightvision(false)
         SetSeethrough(true)
-    elseif visionState == VISION_STATE.thermal then
-        SetSeethrough(false)
+        lib.notify({
+            title = "Helikopter Kamera",
+            description = "Varmesøker-modus",
+            type = "success",
+            icon = 'helicopter',
+            position = 'center-left'
+        })
     else
         error('Unexpected visionState ' .. json.encode(visionState))
     end
-    visionState = (visionState + 1) % 3
 end
 
 local function hideHudThisFrame()
@@ -182,20 +207,20 @@ local function turnOffCam()
     heliCam = false
     vehicleLockState = VEHICLE_LOCK_STATE.dormant
     scanValue = 0
-    SendNUIMessage({
-        type = 'disablescan',
-    })
-    SendNUIMessage({
-        type = 'heliclose',
-    })
+    SendNUIMessage({ type = 'disablescan' })
+    SendNUIMessage({ type = 'heliclose' })
+
+    -- -- Toggle main HUD back on
+    -- exports['0r-hud-v3']:ToggleVisible(true)
 end
 
 local function handleInVehicle()
     if not LocalPlayer.state.isLoggedIn then return end
 
     if heliCam then
+
         exports['0r-hud-v3']:ToggleVisible(false)
-        
+
         SetTimecycleModifier('heliGunCam')
         SetTimecycleModifierStrength(0.3)
         local scaleform = lib.requestScaleformMovie('HELI_CAM')
@@ -205,11 +230,12 @@ local function handleInVehicle()
         SetCamFov(cam, fov)
         RenderScriptCams(true, false, 0, true, false)
         PushScaleformMovieFunction(scaleform, 'SET_CAM_LOGO')
-        PushScaleformMovieFunctionParameterInt(0) -- 0 for nothing, 1 for LSPD logo
+        PushScaleformMovieFunctionParameterInt(0)
         PopScaleformMovieFunctionVoid()
         lockedOnVehicle = nil
+
         while heliCam and not IsEntityDead(cache.ped) and cache.vehicle and isHeliHighEnough(cache.vehicle) do
-            if IsControlJustPressed(0, toggleHeliCam) then -- Toggle Helicam
+            if IsControlJustPressed(0, toggleHeliCam) then
                 turnOffCam()
             end
             if IsControlJustPressed(0, toggleVision) then
@@ -218,17 +244,14 @@ local function handleInVehicle()
             local zoomValue = 0
             if lockedOnVehicle then
                 if DoesEntityExist(lockedOnVehicle) then
-
                     PointCamAtEntity(cam, lockedOnVehicle, 0.0, 0.0, 0.0, true)
                     if IsControlJustPressed(0, toggleLockOn) then
                         cam = unlockCam(cam)
                     end
                 else
                     vehicleLockState = VEHICLE_LOCK_STATE.dormant
-                    SendNUIMessage({
-                        type = 'disablescan',
-                    })
-                    lockedOnVehicle = nil -- Cam will auto unlock when entity doesn't exist anyway
+                    SendNUIMessage({ type = 'disablescan' })
+                    lockedOnVehicle = nil
                 end
             else
                 zoomValue = (1.0 / (FOV_MAX - FOV_MIN)) * (fov - FOV_MIN)
@@ -237,7 +260,7 @@ local function handleInVehicle()
                 vehicleLockState = DoesEntityExist(vehicleDetected) and VEHICLE_LOCK_STATE.scanning or VEHICLE_LOCK_STATE.dormant
             end
             handleZoom(cam)
-            hideHudThisFrame()
+            hideHudThisFrame() -- keep your existing HUD hiding logic
             PushScaleformMovieFunction(scaleform, 'SET_ALT_FOV_HEADING')
             PushScaleformMovieFunctionParameterFloat(GetEntityCoords(cache.vehicle).z)
             PushScaleformMovieFunctionParameterFloat(zoomValue)
@@ -246,15 +269,16 @@ local function handleInVehicle()
             DrawScaleformMovieFullscreen(scaleform, 255, 255, 255, 255, 0)
             Wait(0)
         end
+
         heliCam = false
         ClearTimecycleModifier()
-        fov = (FOV_MAX + FOV_MIN) * 0.5 -- reset to starting zoom level
-        RenderScriptCams(false, false, 0, true, false) -- Return to gameplay camera
-        SetScaleformMovieAsNoLongerNeeded(scaleform) -- Cleanly release the scaleform
+        fov = (FOV_MAX + FOV_MIN) * 0.5
+        RenderScriptCams(false, false, 0, true, false)
+        SetScaleformMovieAsNoLongerNeeded(scaleform)
         DestroyCam(cam, false)
         SetNightvision(false)
         SetSeethrough(false)
-         
+
         exports['0r-hud-v3']:ToggleVisible(true)
     end
 end
